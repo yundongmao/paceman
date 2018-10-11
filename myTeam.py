@@ -115,10 +115,6 @@ class DummyAgent(CaptureAgent):
         # self.weights2["closest-food"] = -258.941410881
         # self.weights2["bias"] = -258.941410881
 
-
-
-
-
         '''
         Your initialization code goes here, if you need any.
         '''
@@ -133,6 +129,12 @@ class DummyAgent(CaptureAgent):
             for j in range(len(self.walls[0])):
                 if not self.walls[i][j]:
                     self.myHandle(i, j)
+
+        for i in range(len(self.walls)):
+            for j in range(len(self.walls[0])):
+                if not self.walls[i][j]:
+                    self.myBFS2(i, j)
+
         for c in list(self.caveSet):
             if (c[0] - 1, c[1]) not in self.caveSet and not self.walls[c[0] - 1][c[1]]:
                 self.caveEntry.add(c)
@@ -177,6 +179,27 @@ class DummyAgent(CaptureAgent):
             return
 
         self.caveSet.add((x, y))
+
+    def myBFS2(self, i, j):
+        pre = set([(i, j)])
+        tempss = set()
+        while len(pre) > 0:
+            temp = set()
+            for c in list(pre):
+                if self.walls[c[0]][c[1]]:
+                    continue
+                if c in self.caveSet:
+                    continue
+                tempss.add(c)
+                if self.isInMyArea(c):
+                    return
+                temp.add((c[0], c[1] - 1))
+                temp.add((c[0], c[1] + 1))
+                temp.add((c[0] - 1, c[1]))
+                temp.add((c[0] + 1, c[1]))
+
+            pre = temp - tempss
+        self.caveSet.add((i,j))
 
     def myBFS(self, i, j, distance, caveEntry):
         pre = set([(i, j)])
@@ -243,6 +266,8 @@ class DummyAgent(CaptureAgent):
         Picks among actions randomly.
         """
         # print gameState.getAgentDistances()
+        foods = self.getFoodYouAreDefending(gameState)
+
 
         self.handleState(gameState)
         currentPos = gameState.getAgentPosition(self.index)
@@ -250,10 +275,12 @@ class DummyAgent(CaptureAgent):
 
         if self.getDisFromMid(currentPos[0]) ==1:
             self.stage = 1
-
-        # if self.canOberserveOppo(gameState, currentPos, ghostIndexList):
-        #     if self.isInMyArea(currentPos):
-        #         return self.getLineDefenceAction(gameState)
+        teampos =gameState.getAgentPosition(self.teamMap[self.index])
+        if self.canOberserveOppo(gameState, currentPos, ghostIndexList):
+            if self.isInMyArea(currentPos):
+                return self.getLineDefenceAction(gameState)
+            if self.index > 1 and self.canOberserveOppo(gameState,teampos , ghostIndexList):
+                self.stage = 0
 
         actions = gameState.getLegalActions(self.index)
         # print [[self.getQValue(gameState, action), action] for action in actions]
@@ -394,14 +421,10 @@ class DummyAgent(CaptureAgent):
                     if state.getAgentState(ghost).scaredTimer < 5:
                         if self.getMazeDistance((next_x,next_y),temp) > 5:
                             continue
-                        if temp in self.caveDis:
-                            if caveDis >= self.caveDis[temp][0]-1:
-                                features["can_be_captured"] = 1
-                                break
-                        else:
-                            if caveDis >= self.getMazeDistance(temp, caveEntry) - 2:
-                                features["can_be_captured"] = 1
-                                break
+
+                        if caveDis >= self.getMazeDistance(temp, caveEntry) - 2:
+                            features["can_be_captured"] = 1
+                            break
             else:
                 features["can_be_captured"] = 0
 
@@ -506,13 +529,32 @@ class DummyAgent(CaptureAgent):
             return self.SouthClosestFood(pos, food, walls)
         return min(temp)
 
+    # def getHomeDis(self, pos, walls):
+    #     if self.red:
+    #         x = self.width / 2 - 1
+    #     else:
+    #         x = self.width / 2
+    #
+    #     return min([self.getMazeDistance(pos, (x, y)) for y in range(0, walls.height) if not walls[x][y]])
+
     def getHomeDis(self, pos, walls):
         if self.red:
             x = self.width / 2 - 1
         else:
             x = self.width / 2
 
-        return min([self.getMazeDistance(pos, (x, y)) for y in range(0, walls.height) if not walls[x][y]])
+        if self.index > 1:
+            h2 = 7*walls.height/8
+            h1 = 5*walls.height/8
+        else:
+            h1 = walls.height/8
+            h2 = 3*walls.height/8
+
+        temp = [self.getMazeDistance(pos, (x, y)) for y in range(h1,h2) if not walls[x][y]]
+        if len(temp) == 0:
+            return min([self.getMazeDistance(pos, (x, y)) for y in range(0, walls.height) if not walls[x][y]])
+        return min(temp)
+
 
     def closestFood(self, pos, food, walls):
         """
