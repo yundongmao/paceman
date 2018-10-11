@@ -17,9 +17,6 @@ import random, time, util
 from game import Directions
 import game
 
-global agent1Pos
-
-
 #################
 # Team creation #
 #################
@@ -91,8 +88,6 @@ class DummyAgent(CaptureAgent):
         self.teamMap[1] = 3
         self.teamMap[2] = 0
         self.teamMap[3] = 1
-        global agent1Pos
-        agent1Pos = None
 
         '''
         Make sure you do not delete the following line. If you would like to
@@ -132,6 +127,8 @@ class DummyAgent(CaptureAgent):
 
         self.caveSet = set()
         self.caveEntry = set()
+        # self.caveExit =set()
+
         for i in range(len(self.walls)):
             for j in range(len(self.walls[0])):
                 if not self.walls[i][j]:
@@ -239,7 +236,6 @@ class DummyAgent(CaptureAgent):
 
     def getLineDefenceAction(self, state):
         actions = state.getLegalActions(self.index)
-        # return max([[self.getDefendActionValue(state, action), action] for action in actions if action in self.verticleDirection])[1]
         return max([[self.getDefendActionValue(state, action), action] for action in actions])[1]
 
     def chooseAction(self, gameState):
@@ -255,22 +251,13 @@ class DummyAgent(CaptureAgent):
         if self.getDisFromMid(currentPos[0]) ==1:
             self.stage = 1
 
-        if self.canOberserveOppo(gameState, currentPos, ghostIndexList):
-            if self.isInMyArea(currentPos):
-                return self.getLineDefenceAction(gameState)
+        # if self.canOberserveOppo(gameState, currentPos, ghostIndexList):
+        #     if self.isInMyArea(currentPos):
+        #         return self.getLineDefenceAction(gameState)
 
-
-        global agent1Pos
-        if agent1Pos is None:
-            actions = gameState.getLegalActions(self.index)
-            action = max([[self.getQValue(gameState, action), action] for action in actions])[1]
-            x, y = gameState.getAgentPosition(self.index)
-            dx, dy = Actions.directionToVector(action)
-            agent1Pos = (int(x + dx), int(y + dy))
-        else:
-            actions = gameState.getLegalActions(self.index)
-            action = max([[self.getQValue(gameState, action), action] for action in actions])[1]
-            agent1Pos = None
+        actions = gameState.getLegalActions(self.index)
+        # print [[self.getQValue(gameState, action), action] for action in actions]
+        action = max([[self.getQValue(gameState, action), action] for action in actions])[1]
         return action
 
     def getDefendAction(self, state):
@@ -336,17 +323,9 @@ class DummyAgent(CaptureAgent):
                     features["closest-food"] = float(temp) / (walls.width * walls.height)
                     break
         else:
-            # todo min() arg is an empty sequence
             temp = [self.getMazeDistance((next_x, next_y), food) for food in foods.asList()]
             if len(temp) != 0:
                 features["closest-food"] = float(min(temp)) / (walls.width * walls.height)
-
-        global agent1Pos
-        if not agent1Pos is None:
-            tempdist = max(abs(next_y- agent1Pos[1]), 0.5)
-            tempdist = min(tempdist, 4)
-            if state.data.timeleft < 1050:
-                features["team_dis"] = 0.07 / tempdist
 
         next_x, next_y = int(x + dx), int(y + dy)
         if (next_x, next_y) in self.caveDis:
@@ -368,19 +347,10 @@ class DummyAgent(CaptureAgent):
     def getWeights2(self):
         return self.weights
 
-        '''
-        You should change this in your own agent.
-        '''
-
-        # return random.choice(actions)
 
     def getQValue(self, state, action):
-        """
-          Should return Q(state,action) = w * featureVector
-          where * is the dotProduct operator
-        """
-
         result = self.getWeights() * self.getFeatures(state, action)
+        # print(action,self.getFeatures(state, action))
         return result
 
     def getWeights(self):
@@ -398,6 +368,8 @@ class DummyAgent(CaptureAgent):
         return result
 
     def getFeatures(self, state, action):
+        # print self.caveEntry
+        # print (23,4) in self.caveSet
         # extract the grid of food and wall locations and get the ghost locations
         food = self.getFood(state)
         x, y = state.getAgentPosition(self.index)
@@ -422,9 +394,14 @@ class DummyAgent(CaptureAgent):
                     if state.getAgentState(ghost).scaredTimer < 5:
                         if self.getMazeDistance((next_x,next_y),temp) > 5:
                             continue
-                        if caveDis >= self.getMazeDistance(temp, caveEntry) - 2:
-                            features["can_be_captured"] = 1
-                            break
+                        if temp in self.caveDis:
+                            if caveDis >= self.caveDis[temp][0]-1:
+                                features["can_be_captured"] = 1
+                                break
+                        else:
+                            if caveDis >= self.getMazeDistance(temp, caveEntry) - 2:
+                                features["can_be_captured"] = 1
+                                break
             else:
                 features["can_be_captured"] = 0
 
@@ -440,23 +417,19 @@ class DummyAgent(CaptureAgent):
                             if state.getAgentState(self.index).scaredTimer > 0:
                                 features["#-of-ghosts-1-step-away"] += 1
 
-        global agent1Pos
-        if not agent1Pos is None:
-            tempdist = max(abs(next_y- agent1Pos[1]), 0.5)
-            tempdist = min(tempdist,4)
-            if state.data.timeleft < 1050:
-                features["team_dis"] = 0.07 / tempdist
-                # features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.getLegalNeighbors(g, walls) for ghost in ghostIndexList if g!=None)
-                # if there is no danger of ghosts then add the food feature
+
         if not features["can_be_captured"] and food[next_x][next_y]:
             features["eats-food"] = 1.0
-        print self.goHome
+        if len(food.asList()) < 3:
+            features["eats-food"] = 1.0
+
         if self.goHome:
             features["closest-food"] = self.getHomeDis((next_x, next_y), walls)
         elif state.data.timeleft < 80:
             self.goHome = True
             features["closest-food"] = self.getHomeDis((next_x, next_y), walls)
         elif self.bePersuitedTime > 20:
+            # print (next_x,next_y),self.getHomeDis((next_x, next_y), walls),features
             features["closest-food"] = self.getHomeDis((next_x, next_y), walls)
         else:
             if self.index < 2:
