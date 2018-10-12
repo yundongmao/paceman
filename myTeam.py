@@ -277,10 +277,11 @@ class DummyAgent(CaptureAgent):
             self.stage = 1
         teampos =gameState.getAgentPosition(self.teamMap[self.index])
         if self.canOberserveOppo(gameState, currentPos, ghostIndexList):
-            if self.isInMyArea(currentPos):
-                return self.getLineDefenceAction(gameState)
-            if self.index > 1 and self.canOberserveOppo(gameState,teampos , ghostIndexList):
+            if self.index <2 and self.canOberserveOppo(gameState,teampos , ghostIndexList):
                 self.stage = 0
+            else:
+                if self.isInMyArea(currentPos):
+                    return self.getLineDefenceAction(gameState)
 
         actions = gameState.getLegalActions(self.index)
         # print [[self.getQValue(gameState, action), action] for action in actions]
@@ -457,7 +458,7 @@ class DummyAgent(CaptureAgent):
         else:
             if self.index < 2:
                 if self.isInMyArea((next_x, next_y)) and self.stage == 0:
-                    dist = self.getMazeDistance((next_x,next_y),self.northEntrance)
+                    dist = self.getMazeDistance((next_x,next_y),self.southEntrance)
                 else:
                     dist = self.SouthClosestFood((next_x, next_y), food, walls)
                 if dist is not None:
@@ -474,10 +475,11 @@ class DummyAgent(CaptureAgent):
                     # make the distance a number less than one otherwise the update
                     # will diverge wildly
                     features["closest-food"] = float(dist) / (walls.width * walls.height)
+
         features.divideAll(10.0)
         return features
 
-    def getNorthEntrance(self):
+    def getSouthEntrance(self):
         if self.red:
             for y in range(self.height):
                 if not self.walls[self.width / 2][y]:
@@ -487,7 +489,7 @@ class DummyAgent(CaptureAgent):
                 if not self.walls[self.width / 2 - 1][y]:
                     return (self.width / 2 - 1, y)
 
-    def getSouthEntrance(self):
+    def getNorthEntrance(self):
         if self.red:
             for y in range(self.height - 1, -1, -1):
                 if not self.walls[self.width / 2][y]:
