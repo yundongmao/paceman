@@ -346,14 +346,14 @@ class DummyAgent(CaptureAgent):
             if oppo == None:
                 continue
             else:
+                temp = self.getMazeDistance((next_x, next_y), oppo)
+                features["closest-food"] = float(temp) / (walls.width * walls.height)
                 if self.isInMyArea(oppo):
-                    temp = self.getMazeDistance((next_x, next_y), oppo)
-                    features["closest-food"] = float(temp) / (walls.width * walls.height)
                     break
-        else:
-            temp = [self.getMazeDistance((next_x, next_y), food) for food in foods.asList()]
-            if len(temp) != 0:
-                features["closest-food"] = float(min(temp)) / (walls.width * walls.height)
+        # else:
+        #         #     temp = [self.getMazeDistance((next_x, next_y), food) for food in foods.asList()]
+        #         #     if len(temp) != 0:
+        #         #         features["closest-food"] = float(min(temp)) / (walls.width * walls.height)
 
         next_x, next_y = int(x + dx), int(y + dy)
         if (next_x, next_y) in self.caveDis:
@@ -378,7 +378,6 @@ class DummyAgent(CaptureAgent):
 
     def getQValue(self, state, action):
         result = self.getWeights() * self.getFeatures(state, action)
-        # print(action,self.getFeatures(state, action))
         return result
 
     def getWeights(self):
